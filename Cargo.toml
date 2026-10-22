@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["cortex9-tracer-common"]
+members = ["cortex9-tracer", "cortex9-tracer-common"]
 # The eBPF crate targets `bpfel-unknown-none` with nightly and has its own
 # workspace (see cortex9-tracer-ebpf/rust-toolchain.toml).
 exclude = ["cortex9-tracer-ebpf"]
