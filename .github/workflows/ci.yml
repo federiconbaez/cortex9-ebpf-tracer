@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  BPF_LINKER_VERSION: v0.12.0
+
+jobs:
+  check:
+    name: fmt · clippy · test (userspace, sin root)
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: |
+          cargo fmt --all -- --check
+          rustfmt --edition 2021 --check cortex9-tracer-ebpf/src/main.rs
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test
+        run: cargo test --workspace --all-targets --locked
+
+  ebpf:
+    name: build eBPF (nightly + bpf-linker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - name: Install bpf-linker
+        run: |
+          curl -sSfL -o /tmp/bpf-linker.tar.zst \
+            "https://github.com/aya-rs/bpf-linker/releases/download/${BPF_LINKER_VERSION}/bpf-linker-x86_64-unknown-linux-musl.tar.zst"
+          mkdir -p "$HOME/.local/bin"
+          tar --zstd -xf /tmp/bpf-linker.tar.zst -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Build eBPF object
+        working-directory: cortex9-tracer-ebpf
+        run: |
+          bpf-linker --version
+          cargo build --release --locked
+          ls -l target/bpfel-unknown-none/release/cortex9-tracer-ebpf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cortex9-tracer-ebpf
+          path: cortex9-tracer-ebpf/target/bpfel-unknown-none/release/cortex9-tracer-ebpf
+          if-no-files-found: error
+
+  load:
+    name: load + trace (sudo, kernel real del runner)
+    runs-on: ubuntu-latest
+    needs: ebpf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: cortex9-tracer-ebpf
+          path: ebpf-obj
+      - name: Kernel
+        run: uname -r
+      - name: Load test (root)
+        env:
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: sudo -E
+        run: |
+          export CORTEX9_EBPF_OBJ="$PWD/ebpf-obj/cortex9-tracer-ebpf"
+          cargo test --release --locked -p cortex9-tracer --test load -- --ignored
+      - name: Smoke run
+        run: |
+          export CORTEX9_EBPF_OBJ="$PWD/ebpf-obj/cortex9-tracer-ebpf"
+          cargo build --release --locked -p cortex9-tracer
+          sudo ./target/release/cortex9-tracer --summary -q -t 2
