@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = []
+# The eBPF crate targets `bpfel-unknown-none` with nightly and has its own
+# workspace (see cortex9-tracer-ebpf/rust-toolchain.toml).
+exclude = ["cortex9-tracer-ebpf"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Federico Nicolas Báez Rizzo"]
+repository = "https://github.com/federiconbaez/cortex9-ebpf-tracer"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
