@@ -66,7 +66,7 @@ target/release/cortex9-tracer --print-config -p 1,2 -s read,write
 - 38 tests: 30 unitarios en `cortex9-tracer` (decode, tablas, errno, filtros, formato, resumen, CLI), 3 de layout en `cortex9-tracer-common`, 4 de integración del binario sin root y 1 de carga real (`tests/load.rs`, `#[ignore]`).
 - El test de carga lanza el tracer con `-p <pid propio> -s openat --failed`, hace `open()` de una ruta inexistente y verifica 3 eventos con PID, syscall y `ENOENT` correctos.
 - Verificado localmente: compilación del objeto eBPF (nightly 1.101, LLVM 23, bpf-linker 0.12.0), carga por el verificador, attach y trazado real con `sudo` en una VM Linux 6.12 x86_64 dentro de un namespace de PID propio (ahí apareció y se corrigió el problema de PIDs globales). El test de carga pasa.
-- CI (GitHub Actions): `check` (fmt, clippy `-D warnings`, tests sin root), `ebpf` (nightly + bpf-linker, sube el objeto) y `load` (descarga el objeto y corre el test de carga y un smoke run con `sudo` en el runner). El job `load` depende de que el runner permita cargar BPF; hasta que corra en GitHub no está verificado ahí.
+- CI (GitHub Actions): `check` (fmt, clippy `-D warnings`, tests sin root), `ebpf` (nightly + bpf-linker, sube el objeto) y `load` (descarga el objeto y corre el test de carga y un smoke run con `sudo` en el runner). En la primera corrida del CI ([run 40469667563](https://github.com/federiconbaez/cortex9-ebpf-tracer/actions/runs/40469667563)) los tres jobs pasaron; `load` corrió en `ubuntu-latest` con kernel 6.17 (Azure): el test de carga pasó (1/1) y el smoke run de 2 s trazó eventos reales sin pérdidas. Sólo se probó en runners x86_64; si GitHub cambia la imagen o restringe BPF, el job puede fallar.
 
 ### Limitaciones (honestas)
 
@@ -130,7 +130,7 @@ A plain `cargo build` (stable, no `bpf-linker`) also works: the binary then load
 - 38 tests: 30 unit tests in `cortex9-tracer` (decode, tables, errno, filters, formatting, summary, CLI), 3 layout tests in `cortex9-tracer-common`, 4 unprivileged binary integration tests and 1 real load test (`tests/load.rs`, `#[ignore]`).
 - The load test starts the tracer with `-p <own pid> -s openat --failed`, calls `open()` on a missing path and checks 3 events with the right PID, syscall and `ENOENT`.
 - Verified locally: eBPF object build (nightly 1.101, LLVM 23, bpf-linker 0.12.0), verifier load, attach and real tracing with `sudo` on a Linux 6.12 x86_64 VM inside its own PID namespace (which is where the global-PID problem showed up and was fixed). The load test passes.
-- CI (GitHub Actions): `check` (fmt, clippy `-D warnings`, unprivileged tests), `ebpf` (nightly + bpf-linker, uploads the object) and `load` (downloads the object, runs the load test and a smoke run with `sudo` on the runner). `load` depends on the runner allowing BPF; it is not verified there until it runs on GitHub.
+- CI (GitHub Actions): `check` (fmt, clippy `-D warnings`, unprivileged tests), `ebpf` (nightly + bpf-linker, uploads the object) and `load` (downloads the object, runs the load test and a smoke run with `sudo` on the runner). In the first CI run ([run 40469667563](https://github.com/federiconbaez/cortex9-ebpf-tracer/actions/runs/40469667563)) all three jobs passed; `load` ran on `ubuntu-latest` with kernel 6.17 (Azure): the load test passed (1/1) and the 2 s smoke run traced real events with no drops. Only x86_64 runners were tried; if GitHub changes the image or restricts BPF, the job can fail.
 
 ### Limitations (honest)
 
